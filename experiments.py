@@ -85,15 +85,13 @@ def train_model(config, tracker):
 
         # Log training metrics
         tracker.log_training_metrics(
+            model,
             epoch=epoch + 1,
             train_loss=train_metrics["loss"],
             train_accuracy=train_metrics["accuracy"],
             val_loss=val_metrics["loss"],
             val_accuracy=val_metrics["accuracy"],
         )
-
-        # Save artifact
-        tracker.save_checkpoint(model, epoch)
 
         print(
             f"Epoch [{epoch + 1}/{config['max_epochs']}], "

@@ -28,7 +28,6 @@ class Experiment(Base):
     # Relationships
     training_metrics = relationship("TrainingMetric", back_populates="experiment")
     evaluation_metrics = relationship("EvaluationMetric", back_populates="experiment")
-    checkpoints = relationship("Checkpoint", back_populates="experiment")
 
 
 class TrainingMetric(Base):
@@ -36,6 +35,7 @@ class TrainingMetric(Base):
 
     id = Column(Integer, primary_key=True)
     experiment_id = Column(Integer, ForeignKey("experiments.id"))
+    checkpoint_path = Column(String, nullable=False)
     epoch = Column(Integer, nullable=False)
     train_loss = Column(Float, nullable=False)
     train_accuracy = Column(Float, nullable=False)
@@ -45,23 +45,6 @@ class TrainingMetric(Base):
 
     # Relationship
     experiment = relationship("Experiment", back_populates="training_metrics")
-    checkpoint = relationship(
-        "Checkpoint", back_populates="training_metric", uselist=False
-    )
-
-
-class Checkpoint(Base):
-    __tablename__ = "checkpoints"
-
-    id = Column(Integer, primary_key=True)
-    experiment_id = Column(Integer, ForeignKey("experiments.id"))
-    path = Column(String, nullable=False)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
-    epoch = Column(Integer, ForeignKey("training_metrics.epoch"), nullable=False)
-
-    # Relationship
-    experiment = relationship("Experiment", back_populates="checkpoints")
-    training_metric = relationship("TrainingMetric", back_populates="checkpoint")
 
 
 class EvaluationMetric(Base):

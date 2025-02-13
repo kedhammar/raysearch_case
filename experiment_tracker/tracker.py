@@ -1,7 +1,7 @@
 # experiment_tracker/tracker.py
 from pathlib import Path
 import torch
-from .database import init_db, Experiment, TrainingMetric, EvaluationMetric, Checkpoint
+from .database import init_db, Experiment, TrainingMetric, EvaluationMetric
 
 
 def _convert_paths_to_strings(config):
@@ -52,15 +52,21 @@ class ExperimentTracker:
         return experiment
 
     def log_training_metrics(
-        self, epoch, train_loss, train_accuracy, val_loss, val_accuracy
+        self, model, epoch, train_loss, train_accuracy, val_loss, val_accuracy
     ):
         """Log metrics for a training epoch."""
         if not self.current_experiment:
             raise RuntimeError("No active experiment. Call start_experiment first.")
 
+        # Save model checkpoint to local file storage
+        filename = f"epoch_{epoch}.pth"
+        path = Path(self.current_experiment.artifacts_path) / filename
+        torch.save(model.state_dict(), path)
+
         metric = TrainingMetric(
             experiment_id=self.current_experiment.id,
             epoch=epoch,
+            checkpoint_path=str(path),
             train_loss=train_loss,
             train_accuracy=train_accuracy,
             val_loss=val_loss,
@@ -79,23 +85,6 @@ class ExperimentTracker:
             dataset_name=dataset_name,
             loss=loss,
             accuracy=accuracy,
-        )
-        self.session.add(metric)
-        self.session.commit()
-
-    def save_checkpoint(self, model, epoch):
-        """Save a model checkpoint to the artifacts directory."""
-        if not self.current_experiment:
-            raise RuntimeError("No active experiment. Call start_experiment first.")
-
-        filename = f"epoch_{epoch + 1}.pth"
-        path = Path(self.current_experiment.artifacts_path) / filename
-        torch.save(model.state_dict(), path)
-
-        metric = Checkpoint(
-            experiment_id=self.current_experiment.id,
-            path=str(path),
-            epoch=epoch,
         )
         self.session.add(metric)
         self.session.commit()
