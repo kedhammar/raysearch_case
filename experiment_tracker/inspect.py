@@ -1,5 +1,4 @@
 # experiment_tracker/inspect.py
-from tabulate import tabulate
 import pandas as pd
 from .database import Experiment, TrainingMetric, EvaluationMetric
 
