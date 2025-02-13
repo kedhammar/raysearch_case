@@ -1,8 +1,7 @@
 # experiment_tracker/tracker.py
 from pathlib import Path
-import json
 import torch
-from .database import init_db, Experiment, TrainingMetric, EvaluationMetric
+from .database import init_db, Experiment, TrainingMetric, EvaluationMetric, Checkpoint
 
 
 def _convert_paths_to_strings(config):
@@ -27,20 +26,29 @@ class ExperimentTracker:
 
     def start_experiment(self, name, config):
         """Start tracking a new experiment with given configuration."""
-        # Create artifacts directory for this experiment
-        experiment_dir = self.base_artifacts_dir / name
-        experiment_dir.mkdir(exist_ok=True)
 
         # Convert any Path objects in config to strings
         serializable_config = _convert_paths_to_strings(config)
 
         # Create experiment record
         experiment = Experiment(
-            name=name, config=serializable_config, artifacts_path=str(experiment_dir)
+            name=name,
+            config=serializable_config,
         )
+
+        # Commit to database
         self.session.add(experiment)
         self.session.commit()
         self.current_experiment = experiment
+
+        # Create artifacts directory for this experiment
+        experiment_dir = self.base_artifacts_dir / str(experiment.id)
+        experiment_dir.mkdir(exist_ok=True)
+        experiment.artifacts_path = str(experiment_dir)
+
+        # Update the experiment with the artifacts path
+        self.session.commit()
+
         return experiment
 
     def log_training_metrics(
@@ -75,28 +83,22 @@ class ExperimentTracker:
         self.session.add(metric)
         self.session.commit()
 
-    def save_artifact(self, artifact, filename):
-        """Save an artifact to the experiment's artifact directory."""
+    def save_checkpoint(self, model, epoch):
+        """Save a model checkpoint to the artifacts directory."""
         if not self.current_experiment:
             raise RuntimeError("No active experiment. Call start_experiment first.")
 
-        artifact_path = Path(self.current_experiment.artifacts_path) / filename
+        filename = f"epoch_{epoch + 1}.pth"
+        path = Path(self.current_experiment.artifacts_path) / filename
+        torch.save(model.state_dict(), path)
 
-        # Handle different types of artifacts
-        if isinstance(artifact, dict) and any(
-            isinstance(v, torch.Tensor) for v in artifact.values()
-        ):
-            # This is likely a PyTorch model state dict or checkpoint
-            torch.save(artifact, artifact_path)
-        elif isinstance(artifact, (dict, list)):
-            # Regular JSON-serializable data
-            with open(artifact_path, "w") as f:
-                json.dump(_convert_paths_to_strings(artifact), f)
-        else:
-            # Assume it's an object with a save method
-            artifact.save(artifact_path)
-
-        return str(artifact_path)
+        metric = Checkpoint(
+            experiment_id=self.current_experiment.id,
+            path=str(path),
+            epoch=epoch,
+        )
+        self.session.add(metric)
+        self.session.commit()
 
     def end_experiment(self):
         """End the current experiment."""

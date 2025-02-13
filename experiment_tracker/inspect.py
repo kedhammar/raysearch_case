@@ -13,7 +13,7 @@ class DBInspector:
 
         rows = []
         for exp in experiments:
-            # Get latest metrics
+            # Get latest metrics TODO
             latest_train = (
                 self.session.query(TrainingMetric)
                 .filter_by(experiment_id=exp.id)

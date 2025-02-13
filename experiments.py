@@ -92,6 +92,9 @@ def train_model(config, tracker):
             val_accuracy=val_metrics["accuracy"],
         )
 
+        # Save artifact
+        tracker.save_checkpoint(model, epoch)
+
         print(
             f"Epoch [{epoch + 1}/{config['max_epochs']}], "
             f"Train Loss: {train_metrics['loss']:.4f}, "
@@ -99,14 +102,6 @@ def train_model(config, tracker):
             f"Val Loss: {val_metrics['loss']:.4f}, "
             f"Val Accuracy: {val_metrics['accuracy']:.4f}"
         )
-
-    # Save model checkpoint
-    checkpoint = {
-        "model_state_dict": model.state_dict(),
-        "hidden_size": config["hidden_size"],
-    }
-    # TODO
-    # tracker.save_artifact(checkpoint, "model_checkpoint.pth")
 
 
 def train_epoch(model, dataloader, criterion, optimizer):
