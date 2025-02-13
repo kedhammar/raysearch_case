@@ -3,3 +3,6 @@ torchvision
 scikit-image
 numpy
 pandas
+matplotlib
+jupyter
+sqlalchemy

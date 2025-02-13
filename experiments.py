@@ -64,7 +64,7 @@ def create_blurred_dataset(input_path, output_path, sigma=2):
     save_dataset(output_path, blurred_dataset)
 
 
-def train_model(config):
+def train_model(config, tracker):
     full_dataset = load_dataset(config["data_path"], config["max_samples"])
     train_size = int(config["data_split_ratio"] * len(full_dataset))
     val_size = len(full_dataset) - train_size
@@ -83,6 +83,15 @@ def train_model(config):
         train_metrics = train_epoch(model, train_loader, criterion, optimizer)
         val_metrics = evaluate(model, val_loader, criterion)
 
+        # Log training metrics
+        tracker.log_training_metrics(
+            epoch=epoch + 1,
+            train_loss=train_metrics["loss"],
+            train_accuracy=train_metrics["accuracy"],
+            val_loss=val_metrics["loss"],
+            val_accuracy=val_metrics["accuracy"],
+        )
+
         print(
             f"Epoch [{epoch + 1}/{config['max_epochs']}], "
             f"Train Loss: {train_metrics['loss']:.4f}, "
@@ -91,10 +100,13 @@ def train_model(config):
             f"Val Accuracy: {val_metrics['accuracy']:.4f}"
         )
 
-    torch.save(
-        {"model_state_dict": model.state_dict(), "hidden_size": config["hidden_size"]},
-        config["output_path"],
-    )
+    # Save model checkpoint
+    checkpoint = {
+        "model_state_dict": model.state_dict(),
+        "hidden_size": config["hidden_size"],
+    }
+    # TODO
+    # tracker.save_artifact(checkpoint, "model_checkpoint.pth")
 
 
 def train_epoch(model, dataloader, criterion, optimizer):
@@ -137,7 +149,7 @@ def evaluate(model, dataloader, criterion):
     return {"loss": running_loss / total, "accuracy": correct / total}
 
 
-def evaluate_model(model_path, data_path):
+def evaluate_model(model_path, data_path, dataset_name, tracker):
     checkpoint = torch.load(model_path)
     model = SimpleNN(checkpoint["hidden_size"])
     model.load_state_dict(checkpoint["model_state_dict"])
@@ -145,6 +157,11 @@ def evaluate_model(model_path, data_path):
     test_dataset = load_dataset(data_path)
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=True)
     metrics = evaluate(model, test_loader, nn.NLLLoss())
+
+    # Log evaluation metrics
+    tracker.log_evaluation_metrics(
+        dataset_name=dataset_name, loss=metrics["loss"], accuracy=metrics["accuracy"]
+    )
 
     print(f"Test Loss: {metrics['loss']:.4f}, Test Accuracy: {metrics['accuracy']:.4f}")
 
@@ -179,6 +196,11 @@ def make_configs(mnist_train, mnist_train_blurred):
 
 
 if __name__ == "__main__":
+    from experiment_tracker.tracker import ExperimentTracker
+
+    # Initialize experiment tracker
+    tracker = ExperimentTracker(base_artifacts_dir="./artifacts")
+
     root = Path("./root")
     mnist_train = root / "mnist_train.pt"
     mnist_test = root / "mnist_test.pt"
@@ -196,6 +218,25 @@ if __name__ == "__main__":
 
     # Start training and evaluation
     for config_name, config in configs.items():
-        train_model(config)
-        evaluate_model(config["output_path"], mnist_test)
-        evaluate_model(config["output_path"], mnist_test_blurred)
+        # Start tracking this experiment
+        tracker.start_experiment(name=config_name, config=config)
+
+        # Train model
+        train_model(config, tracker)
+
+        # Evaluate on both normal and blurred test sets
+        evaluate_model(
+            model_path=config["output_path"],
+            data_path=mnist_test,
+            dataset_name="test",
+            tracker=tracker,
+        )
+        evaluate_model(
+            model_path=config["output_path"],
+            data_path=mnist_test_blurred,
+            dataset_name="test_blurred",
+            tracker=tracker,
+        )
+
+        # End experiment
+        tracker.end_experiment()

@@ -1,0 +1,97 @@
+# experiment_tracker/inspect.py
+from tabulate import tabulate
+import pandas as pd
+from .database import Experiment, TrainingMetric, EvaluationMetric
+
+
+class DBInspector:
+    def __init__(self, session):
+        self.session = session
+
+    def list_experiments(self):
+        """Show a summary of all experiments."""
+        experiments = self.session.query(Experiment).all()
+
+        rows = []
+        for exp in experiments:
+            # Get latest metrics
+            latest_train = (
+                self.session.query(TrainingMetric)
+                .filter_by(experiment_id=exp.id)
+                .order_by(TrainingMetric.epoch.desc())
+                .first()
+            )
+
+            eval_metrics = (
+                self.session.query(EvaluationMetric)
+                .filter_by(experiment_id=exp.id)
+                .all()
+            )
+
+            # Format evaluation results
+            eval_results = {m.dataset_name: f"{m.accuracy:.3f}" for m in eval_metrics}
+
+            rows.append(
+                {
+                    "ID": exp.id,
+                    "Name": exp.name,
+                    "Start Time": exp.start_time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "Hidden Size": exp.config.get("hidden_size", "N/A"),
+                    "Max Samples": exp.config.get("max_samples", "All"),
+                    "Final Train Acc": f"{latest_train.train_accuracy:.3f}"
+                    if latest_train
+                    else "N/A",
+                    "Final Val Acc": f"{latest_train.val_accuracy:.3f}"
+                    if latest_train
+                    else "N/A",
+                    **eval_results,
+                }
+            )
+
+        df = pd.DataFrame(rows)
+        return df
+
+    def get_training_history(self, experiment_id):
+        """Get training metrics history for a specific experiment."""
+        metrics = (
+            self.session.query(TrainingMetric)
+            .filter_by(experiment_id=experiment_id)
+            .order_by(TrainingMetric.epoch)
+            .all()
+        )
+
+        rows = [
+            {
+                "Epoch": m.epoch,
+                "Train Loss": f"{m.train_loss:.4f}",
+                "Train Acc": f"{m.train_accuracy:.4f}",
+                "Val Loss": f"{m.val_loss:.4f}",
+                "Val Acc": f"{m.val_accuracy:.4f}",
+                "Timestamp": m.timestamp.strftime("%H:%M:%S"),
+            }
+            for m in metrics
+        ]
+
+        return pd.DataFrame(rows)
+
+    def get_experiment_details(self, experiment_id):
+        """Get detailed information about a specific experiment."""
+        exp = self.session.query(Experiment).filter_by(id=experiment_id).first()
+        if not exp:
+            return None
+
+        print(f"Experiment {exp.id}: {exp.name}")
+        print("\nConfiguration:")
+        for key, value in exp.config.items():
+            print(f"  {key}: {value}")
+
+        eval_metrics = (
+            self.session.query(EvaluationMetric).filter_by(experiment_id=exp.id).all()
+        )
+
+        if eval_metrics:
+            print("\nEvaluation Results:")
+            for metric in eval_metrics:
+                print(f"  {metric.dataset_name}:")
+                print(f"    Loss: {metric.loss:.4f}")
+                print(f"    Accuracy: {metric.accuracy:.4f}")

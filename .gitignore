@@ -1,2 +1,5 @@
 root/
 *.pyc
+experiments.db
+artifacts/
+WIP/
