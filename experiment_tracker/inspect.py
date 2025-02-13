@@ -27,30 +27,34 @@ class DBInspector:
                 .all()
             )
 
-            # Format evaluation results
-            eval_results = {m.dataset_name: f"{m.accuracy:.3f}" for m in eval_metrics}
+            row = {
+                "ID": exp.id,
+                "Name": exp.name,
+                "Start Time": exp.start_time.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            row.update(exp.config)
 
-            rows.append(
-                {
-                    "ID": exp.id,
-                    "Name": exp.name,
-                    "Start Time": exp.start_time.strftime("%Y-%m-%d %H:%M:%S"),
-                    "Hidden Size": exp.config.get("hidden_size", "N/A"),
-                    "Max Samples": exp.config.get("max_samples", "All"),
-                    "Final Train Acc": f"{latest_train.train_accuracy:.3f}"
-                    if latest_train
-                    else "N/A",
-                    "Final Val Acc": f"{latest_train.val_accuracy:.3f}"
-                    if latest_train
-                    else "N/A",
-                    **eval_results,
-                }
-            )
+            rows.append(row)
 
         df = pd.DataFrame(rows)
         return df
 
-    def get_training_history(self, experiment_id):
+    def get_properties(self, experiment_id):
+        """Get a specific experiment by ID."""
+        exp = self.session.query(Experiment).filter_by(id=experiment_id).first()
+        row = {
+            "ID": exp.id,
+            "Name": exp.name,
+            "Start Time": exp.start_time.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        return pd.DataFrame([row])
+
+    def get_parameters(self, experiment_id):
+        """Get the parameters of a specific experiment."""
+        exp = self.session.query(Experiment).filter_by(id=experiment_id).first()
+        return pd.DataFrame([exp.config])
+
+    def get_training_metrics(self, experiment_id):
         """Get training metrics history for a specific experiment."""
         metrics = (
             self.session.query(TrainingMetric)
@@ -72,6 +76,28 @@ class DBInspector:
         ]
 
         return pd.DataFrame(rows)
+
+    def get_evaluation_metrics(self, experiment_id):
+        """Get all evaluation metrics for a specific experiment."""
+        metrics = (
+            self.session.query(EvaluationMetric)
+            .filter_by(
+                experiment_id=experiment_id,
+            )
+            .all()
+        )
+
+        rows = {
+            m.dataset_name: {
+                "Loss": f"{m.loss:.4f}",
+                "Acc": f"{m.accuracy:.4f}",
+            }
+            for m in metrics
+        }
+
+        df = pd.DataFrame.from_dict(rows, orient="index")
+
+        return df
 
     def get_experiment_details(self, experiment_id):
         """Get detailed information about a specific experiment."""
