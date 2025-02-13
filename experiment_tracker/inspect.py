@@ -1,6 +1,6 @@
 # experiment_tracker/inspect.py
 import pandas as pd
-from .database import Experiment, TrainingMetric, EvaluationMetric
+from experiment_tracker.tracker import Experiment, TrainingMetric, EvaluationMetric
 
 
 class DBInspector:
