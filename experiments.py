@@ -149,26 +149,53 @@ def evaluate_model(model_path, data_path):
     print(f"Test Loss: {metrics['loss']:.4f}, Test Accuracy: {metrics['accuracy']:.4f}")
 
 
-if __name__ == "__main__":
-    root = Path("./root")
-    mnist_train = root / "mnist_train.pt"
-    mnist_test = root / "mnist_test.pt"
-    prepare_mnist_datasets(root, mnist_train, mnist_test)
-
-    training_config = {
+def make_configs(mnist_train, mnist_train_blurred):
+    """Make config variants. Input a train data set and a blurred train data set."""
+    # Default config
+    default_config = {
         "batch_size": 64,
         "hidden_size": 128,
         "learning_rate": 0.01,
         "data_path": mnist_train,
         "data_split_ratio": 0.8,
         "max_epochs": 10,
-        "output_path": root / "model-1.pth",
         "max_samples": None,
     }
 
-    train_model(training_config)
-    evaluate_model(training_config["output_path"], mnist_test)
+    # Config variants
+    configs = {
+        "default": default_config,
+        "hidden2": default_config.copy(),
+        "samples100": default_config.copy(),
+        "blurred": default_config.copy(),
+    }
+    configs["hidden2"]["hidden_size"] = 2
+    configs["samples100"]["max_samples"] = 100
+    configs["blurred"]["data_path"] = mnist_train_blurred
+    for config_name, config in configs.items():
+        config["output_path"] = root / f"model_{config_name}.pth"
+
+    return configs
+
+
+if __name__ == "__main__":
+    root = Path("./root")
+    mnist_train = root / "mnist_train.pt"
+    mnist_test = root / "mnist_test.pt"
+    prepare_mnist_datasets(root, mnist_train, mnist_test)
+
+    # Create blurred datasets
+    mnist_train_blurred = root / "mnist_train_blurred.pt"
+    create_blurred_dataset(mnist_train, mnist_train_blurred)
 
     mnist_test_blurred = root / "mnist_test_blurred.pt"
     create_blurred_dataset(mnist_test, mnist_test_blurred)
-    evaluate_model(training_config["output_path"], mnist_test_blurred)
+
+    # Make configs
+    configs = make_configs(mnist_train, mnist_train_blurred)
+
+    # Start training and evaluation
+    for config_name, config in configs.items():
+        train_model(config)
+        evaluate_model(config["output_path"], mnist_test)
+        evaluate_model(config["output_path"], mnist_test_blurred)
