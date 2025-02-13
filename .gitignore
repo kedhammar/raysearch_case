@@ -3,3 +3,5 @@ root/
 experiments.db
 artifacts/
 WIP/
+__pycache__/
+inspect.ipynb
