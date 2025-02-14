@@ -64,4 +64,4 @@ python experiments.py
 uvicorn main:app --reload
 ```
 
-Web app should be accessible at `http://localhost:8000/experiments`
+Web app should be accessible at `http://localhost:8000/experiments`. The experiment IDs of the table are hyperlinks.
