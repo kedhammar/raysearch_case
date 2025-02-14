@@ -13,25 +13,23 @@ class DBInspector:
 
         rows = []
         for exp in experiments:
-            # Get latest metrics TODO
-            latest_train = (
-                self.session.query(TrainingMetric)
-                .filter_by(experiment_id=exp.id)
-                .order_by(TrainingMetric.epoch.desc())
-                .first()
-            )
-
-            eval_metrics = (
-                self.session.query(EvaluationMetric)
-                .filter_by(experiment_id=exp.id)
-                .all()
-            )
-
             row = {
                 "ID": exp.id,
                 "Name": exp.name,
                 "Start Time": exp.start_time.strftime("%Y-%m-%d %H:%M:%S"),
             }
+
+            # Add evaluation metrics for this experiment
+            eval_metrics = (
+                self.session.query(EvaluationMetric)
+                .filter_by(experiment_id=exp.id)
+                .all()
+            )
+            for metric in eval_metrics:
+                row[f"{metric.dataset_name} Loss"] = f"{metric.loss:.4f}"
+                row[f"{metric.dataset_name} Acc"] = f"{metric.accuracy:.4f}"
+
+            # Add experiment config
             row.update(exp.config)
 
             rows.append(row)
@@ -71,6 +69,7 @@ class DBInspector:
                 "Val Loss": f"{m.val_loss:.4f}",
                 "Val Acc": f"{m.val_accuracy:.4f}",
                 "Timestamp": m.timestamp.strftime("%H:%M:%S"),
+                "Checkpoint": m.checkpoint_path,
             }
             for m in metrics
         ]
