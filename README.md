@@ -26,7 +26,7 @@ The anatomy of the repo laid out below:
 │                        │
 ├── experiment_tracker   │   Tracking module
 │   ├── __init__.py      │
-│   ├── database.py      │    
+│   ├── database.py      │
 │   ├── inspect.py       │
 │   └── tracker.py       │
 │                        │
