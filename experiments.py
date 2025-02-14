@@ -101,6 +101,12 @@ def train_model(config, tracker):
             f"Val Accuracy: {val_metrics['accuracy']:.4f}"
         )
 
+    # Save final working model to root dir
+    torch.save(
+        {"model_state_dict": model.state_dict(), "hidden_size": config["hidden_size"]},
+        config["output_path"],
+    )
+
 
 def train_epoch(model, dataloader, criterion, optimizer):
     model.train()
